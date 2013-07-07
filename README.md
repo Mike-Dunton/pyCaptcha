@@ -1,9 +1,5 @@
-read ini from text file
-	numMinWait
-	saveLocation
-	url
-
 start
+
 	now = date()
 
 	if( currDate.isSet())
@@ -26,7 +22,7 @@ end
 
 
 
-TODO
+*TODO*
 Get percentage of change in picture from last picture
 	if change is sanifigant
 		save it. 	
