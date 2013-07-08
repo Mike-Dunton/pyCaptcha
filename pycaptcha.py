@@ -1,3 +1,9 @@
+###########################################################################
+#Python program to capture an image from url every x seconds and save it to
+#a file with now() as the file name
+#
+#Author: Michael Dunton 07-07-2013
+###########################################################################
 import ConfigParser, urllib2 ,os, time
 from datetime import date, datetime
 
