@@ -4,65 +4,107 @@
 #
 #Author: Michael Dunton 07-07-2013
 ###########################################################################
-import ConfigParser, urllib2 ,os, time
+import ConfigParser, urllib2 ,os, math, time
 from datetime import date, datetime
+from PIL import Image
 
-config = ConfigParser.ConfigParser()
-config.readfp(open('config.cfg'))
-url = config.get("one", "URL")
-rootPath = config.get("one", "SaveLocation")
-waitTime = config.getint("one", "WaitTime")
-workingDir = -1
 
-def saveImage(theUrl, location):
+def getConfig():
+    """Gets the Items from the Config File"""
+    config = ConfigParser.ConfigParser()
+    config.readfp(open('config.cfg'))
+    configList = config.items('one')
+    return dict(configList)
+
+
+def compareImages(file1, file2, pixelDiff):
+    """Compares two images pixel by pixel"""
+    im1 = Image.open(file1)
+    im2 = Image.open(file2)
+    buffer1 = im1.load()
+    buffer2 = im2.load()
+    changedPixels = 0
+    for x in xrange(0, 319):
+        for y in xrange(0, 239):
+            changeAmount = abs(buffer1[x,y][1] - buffer2[x,y][1])
+            if (changeAmount > pixelDiff):
+                changedPixels += 1
+    return changedPixels
+
+def getImage(theUrl):
+    """gets an image from theUrl"""
     try:
         openedUrl = urllib2.urlopen(theUrl)
-        streamJpgCapture = open(location + '/' +datetime.now().time().isoformat(), 'w')
-        streamJpgCapture.write(openedUrl.read())
-        streamJpgCapture.close()
-        return True
+        print 'Got an image'
+        return openedUrl
     except urllib2.URLError as e:
         print e
         return False
 
-   
+def saveImage(theFile, location):
+    """Saves an image to location"""
+    print location
+    try:
+        streamJpgCapture = open(location, 'w')
+        streamJpgCapture.write(theFile.read())
+        print 'Saved an image'
+        streamJpgCapture.close()
+        return True
+    except IOError as (errno, strerror):
+        print "I/O error({0}): {1}".format(errno, strerror)
+        return False
 
+def createSaveLocation(path):
+    if not os.path.exists(path):
+        os.makedirs(path)
+        return True
+    else:
+        return False
+def getFileName():
+    """Returns the Current Time in HH MM SS"""
+    fileName = datetime.now().time().replace(microsecond=0).isoformat() +".jpg"
+    return fileName
+###########################################################################
+#To Start the program we Need to set workingDir to -1
+#and must capture a base image, The image we compare against
+#and grab the config
+###########################################################################
+c = getConfig()
+baseImage = getImage(c['url'])
+workingDir = -1;
+fullDir = "/"
+threshold = c['threshold']
+pixDiff = c['pixeldiff']
 while(True):
     today = date.today()
-    if( workingDir == -1 ):
-        workingDir = today.isoformat();
-        if not os.path.exists(rootPath + workingDir):
-            print'Creating Directory ' + rootPath + workingDir
-            os.makedirs(rootPath + workingDir)
-            print 'Saving the Image to workingDir\n'
-            saveImage(url, workingDir)
-            print 'Sleeping' + str(waitTime) + ' seconds'
-            time.sleep(waitTime)
+    if( workingDir != -1):
+        workingDir = today.isoformat()
+        fullDir = c['savelocation'] + workingDir + "/"
+        if (createSaveLocation(fullDir)):
+            imageToCompare = getImage(c['url'])
+            saveImage(imageToCompare, fullDir + getFileName())
+            baseImage = imageToCompare
+            time.sleep(5)
+            print 'Sleep 5 seconds'
         else:
-            print 'Todays Directory Exists\n'
-            print 'Save the image to workingDir\n'
-            saveImage(url, workingDir)
-            print 'Sleeping' + str(waitTime) + ' seconds'
-            time.sleep(waitTime);
+            workingDir = today.isoformat()
+            fullDir = c['savelocation'] + workingDir + "/"
+            imageToCompare = getImage(c['url'])
+            if( compareImages(baseImage, imageToCompare, c['pixeldiff']) > threshold):
+                saveImage(imageToCompare, fullDir + getFileName())
+                print 'Compared an image and Saved it about to sleep'
+                time.sleep(5)
     else:
-        if(today.isoformat() > workingDir):
-            #Its a new day set a new workingDir and make the folder
-            workingDir = today.isoformat();
-            if not os.path.exists(rootPath + workingDir):
-                print 'creating new workingdir '+ rootPath + workingDir
-                os.makedirs(rootPath + workingDir)
-                print 'Save the image to workingDir'
-                saveImage(url, workingDir)
-                print ' Sleeping' + str(waitTime) + ' seconds'
-                time.sleep(waitTime)
-            else:
-                #This should not happen.
-                print 'New Days Folder already created....Thats Odd\n'
+        workingDir = today.isoformat()
+        fullDir = c['savelocation'] + workingDir + "/"
+        if( createSaveLocation(fullDir) ):
+            imageToCompare = getImage(c['url'])
+            saveImage(imageToCompare, fullDir + getFileName())
+            baseImage = imageToCompare
+            print 'Sleep 5 seconds'
+            print 'Path Did not exist and I created it also saved first base image'
+            time.sleep(5)
         else:
-            #This case will happen 99% of the time.
-            print 'WorkingFolder is set and no need to create new folder'
-            print 'save the image\n'
-            saveImage(url, workingDir)
-            print 'Sleeping' + str(waitTime) + ' seconds'
-            time.sleep(waitTime);
+            print 'Path did exist did  not create'
+     
 
