@@ -27,7 +27,7 @@ def saveImage(theUrl, location):
 
    
 
-while(true):
+while(True):
     today = date.today()
     if( workingDir == -1 ):
         workingDir = today.isoformat();
