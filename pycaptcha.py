@@ -4,7 +4,7 @@
 #
 #Author: Michael Dunton 07-07-2013
 ###########################################################################
-import ConfigParser, urllib2 ,os, math, time
+import ConfigParser, urllib2 ,os, math, time, cStringIO
 from datetime import date, datetime
 from PIL import Image
 
@@ -17,18 +17,17 @@ def getConfig():
     return dict(configList)
 
 
-def compareImages(file1, file2, pixelDiff):
+def compareImages(im1, im2, pixelDiff):
     """Compares two images pixel by pixel"""
-    im1 = Image.open(file1)
-    im2 = Image.open(file2)
     buffer1 = im1.load()
     buffer2 = im2.load()
     changedPixels = 0
     for x in xrange(0, 319):
         for y in xrange(0, 239):
             changeAmount = abs(buffer1[x,y][1] - buffer2[x,y][1])
-            if (changeAmount > pixelDiff):
+            if (changeAmount > int(pixelDiff)):
                 changedPixels += 1
+    print str(changedPixels)+ ' ' + pixelDiff
     return changedPixels
 
 def getImage(theUrl):
@@ -36,7 +35,9 @@ def getImage(theUrl):
     try:
         openedUrl = urllib2.urlopen(theUrl)
         print 'Got an image'
-        return openedUrl
+        fileAsString = cStringIO.StringIO(openedUrl.read())
+        img = Image.open(fileAsString)
+        return img
     except urllib2.URLError as e:
         print e
         return False
@@ -44,15 +45,11 @@ def getImage(theUrl):
 def saveImage(theFile, location):
     """Saves an image to location"""
     print location
-    try:
-        streamJpgCapture = open(location, 'w')
-        streamJpgCapture.write(theFile.read())
-        print 'Saved an image'
-        streamJpgCapture.close()
-        return True
-    except IOError as (errno, strerror):
-        print "I/O error({0}): {1}".format(errno, strerror)
-        return False
+       # streamJpgCapture = open(location, 'w')
+       # streamJpgCapture.write(theFile.read())
+    theFile.save(location)
+    print 'Saved an image'
+       # streamJpgCapture.close()
 
 def createSaveLocation(path):
     if not os.path.exists(path):
@@ -84,20 +81,23 @@ while(True):
             imageToCompare = getImage(c['url'])
             saveImage(imageToCompare, fullDir + getFileName())
             baseImage = imageToCompare
+            del imageToCompare
             time.sleep(5)
             print 'Sleep 5 seconds'
         else:
             workingDir = today.isoformat()
             fullDir = c['savelocation'] + workingDir + "/"
             imageToCompare = getImage(c['url'])
-            if( compareImages(baseImage, imageToCompare, c['pixeldiff']) > threshold):
+            if( compareImages(baseImage, imageToCompare, pixDiff) > int(threshold)):
                 saveImage(imageToCompare, fullDir + getFileName())
-                print 'Compared an image and Saved it about to sleep'
-                time.sleep(5)
+                baseImage = imageToCompare
+            
+            print 'Compared an image about to sleep'
+            time.sleep(5);
     else:
         workingDir = today.isoformat()
         fullDir = c['savelocation'] + workingDir + "/"
-        if( createSaveLocation(fullDir) ):
+        if not ( createSaveLocation(fullDir) ):
             imageToCompare = getImage(c['url'])
             saveImage(imageToCompare, fullDir + getFileName())
             baseImage = imageToCompare
